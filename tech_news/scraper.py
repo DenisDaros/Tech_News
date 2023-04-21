@@ -2,6 +2,8 @@ from parsel import Selector
 import requests
 import time
 
+from tech_news.database import create_news
+
 
 def fetch(url):
     headers = {"user-agent": "Fake user-agent"}
@@ -24,7 +26,9 @@ def scrape_updates(html_content):
 # Requisito 3
 def scrape_next_page_link(html_content):
     selector = Selector(html_content)
-    next_page_numbers = selector.css("div.nav-links a.next::attr(href)").get()
+    next_page_numbers = selector.css(".next ::attr(href)").get()
+    if not (next_page_numbers):
+        return None
     return next_page_numbers
 
 
@@ -37,7 +41,7 @@ def scrape_news(html_content):
         "timestamp": selector.css("li.meta-date::text").get(),
         "writer": selector.css("span.author a::text").get(),
         "reading_time": int(
-              selector.css('li.meta-reading-time::text').get().split(" ")[0]
+            selector.css("li.meta-reading-time::text").get().split(" ")[0]
         ),
         "summary": "".join(
             selector.css(".entry-content > p:first-of-type *::text").getall()
@@ -49,4 +53,16 @@ def scrape_news(html_content):
 
 # Requisito 5
 def get_tech_news(amount):
-    """Seu código deve vir aqui"""
+    url = "https://blog.betrybe.com/"
+    response = []
+
+    html_content_page = fetch(url)
+    while len(response) < amount:
+        response += scrape_updates(html_content_page)
+        html_content_page = fetch(scrape_next_page_link(html_content_page))
+
+    news_content = []
+    for i in response[:amount]:
+        news_content.append(scrape_news(fetch(i)))
+    create_news(news_content)
+    return news_content
